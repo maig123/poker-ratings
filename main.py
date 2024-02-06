@@ -12,29 +12,19 @@ class Player():
     def __init__(self, name, mu = 25, sigma = 8.333):
         self.current_rating = ts.Rating(float(mu), float(sigma))
         self.name = str(name).strip()
-        self.rating_history = []
-        self.rating_history.append([float(mu), float(sigma)])
+        self.rating_history = [float(mu), float(sigma)]
     
     def update_rating(self, a):
-        #self.rating = ts.Rating(float(mu), float(sigma))
-        #new_list = [str(deepcopy(rating.mu)), str(deepcopy(self.rating.sigma))]
+
         #check if rating is the same 
-        print()
         if self.current_rating.mu == float(a[0]):
             print("no change")
         else: 
             self.current_rating = ts.Rating(float(a[0]), float(a[1]))
             new_list = [float(a[0]), float(a[1])]
-            #print("current" , self.rating_history)
-            #print("adding::::" ,new_list)
             
             self.rating_history.append(new_list)
 
-    #writes player info to datasource 
-    def save_player(self):
-        print(self.name)
-        print(self.rating)
-        print(self.rating_history)
 
     def load_player(self, file): 
         print("loading player")
@@ -44,7 +34,7 @@ class Player():
 
 
 def savedata(filename, thingtowrite): 
-    print("########IMMMM SAVING DATA#########")
+    print("#####writing info to file######")
     f = open(filename, 'w+')
     
     
@@ -74,18 +64,15 @@ def extract_results(soup):
         
 
 def create_episode_string(episodenumber):
-    #first 10 are 01-09,
-    #therest are %20
-    #%2001 = 01
-    #%2010 = 10
+
     root = "https://www.trackingpoker.com/live/Episode%20"
-    string = ""
+    result_string = ""
     
     if episodenumber < 10: 
-        string = root + "0" + str(episodenumber)
+        result_string = root + "0" + str(episodenumber)
     else:
-        string = root+str(episodenumber)
-    return string
+        result_string = root+str(episodenumber)
+    return result_string
 
 
 
@@ -125,53 +112,55 @@ def savedata(outfile, player_dict):
 
 
 
+def main():
+    getdata = False
+    if getdata:
+        driver = webdriver.Chrome()
 
-getdata = False
-if getdata:
-    driver = webdriver.Chrome()
+        start = 395
+        finish = 397
 
-    start = 395
-    finish = 397
+        for x in range(start, finish):
+            driver.get(create_episode_string(x))
+            soup = bs.BeautifulSoup(driver.page_source, 'html.parser')
+            savefile="site-data/" + str(x)+".html"
+            savedata(savefile, soup.prettify())
+            extract_results(soup)
 
-    for x in range(start, finish):
-        driver.get(create_episode_string(x))
-        soup = bs.BeautifulSoup(driver.page_source, 'html.parser')
-        savefile="site-data/" + str(x)+".html"
-        savedata(savefile, soup.prettify())
-        extract_results(soup)
+        driver.close()
 
-    driver.close()
+    loaddata = False
+    if loaddata:
+        loaded_data = {}
+        results = processfile("site-data/1.html", loaded_data)
+        excludelist = [395, 396, 551]
+        for x in range(1,568): 
+            if not x in excludelist:
+                file = "site-data/" + str(x) + ".html"
+                results = processfile(file, results)
+                outfile = str(x)+".csv"
+                savedata(outfile, results)
 
-loaddata = False
-if loaddata:
-    loaded_data = {}
-    results = processfile("site-data/1.html", loaded_data)
+    
+
+
+    buildcharts = True
     excludelist = [395, 396, 551]
-    for x in range(1,568): 
-        if not x in excludelist:
-            file = "site-data/" + str(x) + ".html"
-            results = processfile(file, results)
-            outfile = str(x)+".csv"
-            savedata(outfile, results)
+    results_sofar = {}
+    if buildcharts: 
+        #loop through *.csv 
+        for x in range(1, 567):
+            if not x in excludelist:
+                loadfile = "ratings/" +str(x) + ".csv"
 
- 
+                with open(loadfile,'r') as f:
+                    csvreader = csv.reader(f)
+                    for row in csvreader:
+                        if not row[0] in results_sofar:
+                            results_sofar[row[0]] = Player(name = row[0], mu = row[1], sigma = row[2])
+                        else:
+                            temp = [float(row[1]), float(row[2])]
+                            results_sofar[row[0]].update_rating(temp)
 
-
-buildcharts = True
-excludelist = [395, 396, 551]
-results_sofar = {}
-if buildcharts: 
-    #loop through *.csv 
-    for x in range(1, 567):
-        if not x in excludelist:
-            loadfile = "ratings/" +str(x) + ".csv"
-
-            with open(loadfile,'r') as f:
-                csvreader = csv.reader(f)
-                for row in csvreader:
-                    if not row[0] in results_sofar:
-                        results_sofar[row[0]] = Player(name = row[0], mu = row[1], sigma = row[2])
-                    else:
-                        temp = [float(row[1]), float(row[2])]
-                        results_sofar[row[0]].update_rating(temp)
-
+if __name__ == "__main__":
+    main()
